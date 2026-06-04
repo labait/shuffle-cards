@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shuffle Cards</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen">
+    <main class="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center gap-8 px-6 py-12">
+      <div id="deck" class="relative h-[300px] w-[180px] perspective-[1000px]"></div>
+    </main>
+
+    <div id="card-template" class="hidden" aria-hidden="true">
+      <div class="card absolute h-full w-full cursor-pointer select-none">
+        <div class="card-tilt size-full [transform-style:preserve-3d]">
+          <div
+            class="card-flip relative size-full rounded-[10px] shadow-md outline outline-1 outline-gray-300 [transform-style:preserve-3d] transition-[transform,box-shadow] duration-250 ease-in-out"
+          >
+            <div
+              class="card-face card-front absolute inset-0 overflow-hidden rounded-[10px] backface-hidden [transform:rotateY(0deg)_translateZ(1px)]"
+            >
+              <img
+                class="pointer-events-none block size-full object-cover"
+                src="images/card-front.png"
+                alt="Fronte carta"
+                draggable="false"
+              />
+              <span class="number pointer-events-none absolute inset-0 flex items-center justify-center text-8xl font-bold text-gray-800"></span>
+            </div>
+            <div
+              class="card-face card-back absolute inset-0 overflow-hidden rounded-[10px] backface-hidden [transform:rotateY(180deg)_translateZ(1px)]"
+            >
+              <img class="pointer-events-none block size-full object-cover" src="" alt="Retro carta" draggable="false" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const items = []
+      const backs = ['card-back-red.png', 'card-back-black.png']
+
+      Array.from({ length: 12 }).forEach((_, index) => {
+        items.push({
+          image_back: backs[index % backs.length],
+        })
+      })
+
+      let cardCurrentIndex = null
+      let topCardIndex = null
+      let topZIndex = 0
+      const cards = []
+
+      const setCardTransform = ({ tilt, flip, rotation, faceUp }) => {
+        tilt.style.transform = `rotate(${rotation}deg)`
+        flip.style.transform = `rotateY(${faceUp ? 0 : 180}deg)`
+      }
+
+      const setCardShadow = (flip, isTop) => {
+        flip.classList.toggle('shadow-md', !isTop)
+        flip.classList.toggle('shadow-2xl', isTop)
+      }
+
+      const setTopCard = (index) => {
+        if (topCardIndex !== null) {
+          setCardShadow(cards[topCardIndex].flip, false)
+        }
+
+        topCardIndex = index
+        setCardShadow(cards[topCardIndex].flip, true)
+      }
+
+      const cardFlip = (index) => {
+        if (cardCurrentIndex !== null && cardCurrentIndex !== index) {
+          cards[cardCurrentIndex].faceUp = false
+          setCardTransform(cards[cardCurrentIndex])
+        }
+
+        cards[index].faceUp = true
+        cardCurrentIndex = index
+
+        topZIndex += 1
+        cards[index].element.style.zIndex = String(topZIndex)
+        setCardTransform(cards[index])
+        setTopCard(index)
+      }
+
+      const deckCreate = (containerSelector) => {
+        const maxOffset = 60
+        const maxRotation = 30
+
+        const container = document.querySelector(containerSelector)
+        const template = document.querySelector('#card-template .card')
+        if (!container || !template) return
+
+        container.replaceChildren()
+        cards.length = 0
+        cardCurrentIndex = null
+        topCardIndex = null
+        topZIndex = items.length
+
+        items.forEach((item, index) => {
+          const card = template.cloneNode(true)
+          const tilt = card.querySelector('.card-tilt')
+          const flip = card.querySelector('.card-flip')
+          const number = card.querySelector('.number')
+          const back = card.querySelector('.card-back img')
+          const rotation = (Math.random() * 2 - 1) * maxRotation
+
+          card.dataset.index = String(index)
+          card.style.left = `${(Math.random() * 2 - 1) * maxOffset}px`
+          card.style.top = `${(Math.random() * 2 - 1) * maxOffset}px`
+          card.style.zIndex = String(index + 1)
+          number.textContent = String(index + 1)
+          back.src = `images/${item.image_back}`
+
+          cards[index] = { element: card, tilt, flip, rotation, faceUp: false }
+          setCardTransform(cards[index])
+
+          card.addEventListener('dragstart', (event) => event.preventDefault())
+          card.addEventListener('click', () => cardFlip(index))
+
+          container.append(card)
+        })
+
+        setTopCard(items.length - 1)
+      }
+
+      deckCreate('#deck')
+    </script>
+  </body>
+</html>
