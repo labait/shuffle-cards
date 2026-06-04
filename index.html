@@ -7,9 +7,17 @@
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
   <body class="min-h-screen">
-    <main class="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center gap-8 px-6 py-12">
+    <main class="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-6 py-12">
       <div id="deck" class="relative h-[300px] w-[180px] perspective-[1000px]"></div>
     </main>
+
+    <button
+      id="shuffle"
+      type="button"
+      class="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white shadow-lg transition hover:bg-gray-700"
+    >
+      Shuffle
+    </button>
 
     <div id="card-template" class="hidden" aria-hidden="true">
       <div class="card absolute h-full w-full cursor-pointer select-none">
@@ -56,6 +64,82 @@
       const setCardTransform = ({ tilt, flip, rotation, faceUp }) => {
         tilt.style.transform = `rotate(${rotation}deg)`
         flip.style.transform = `rotateY(${faceUp ? 0 : 180}deg)`
+      }
+
+      const setCardPosition = (cardState, x, y, rotation) => {
+        cardState.element.style.left = `${x}px`
+        cardState.element.style.top = `${y}px`
+        cardState.rotation = rotation
+        setCardTransform(cardState)
+      }
+
+      const readInitPosition = (card) => ({
+        x: parseFloat(card.dataset.initX),
+        y: parseFloat(card.dataset.initY),
+        rotation: parseFloat(card.dataset.rotation),
+      })
+
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+      const setCardMotion = (enabled, duration = 400) => {
+        const transition = enabled ? `left ${duration}ms ease, top ${duration}ms ease` : ''
+        const tiltTransition = enabled ? `transform ${duration}ms ease` : ''
+
+        cards.forEach(({ element, tilt, flip }) => {
+          element.style.transition = transition
+          tilt.style.transition = tiltTransition
+          if (!enabled) {
+            flip.style.transition = ''
+          }
+        })
+      }
+
+      const deckShuffle = async () => {
+        const offsetX = 24
+        const offsetY = 48
+        const offsetRotation = 45
+        const duration = 400
+
+        const deck = document.querySelector('#deck')
+        if (!deck || cards.length === 0) return
+
+        const cardWidth = deck.offsetWidth
+        const cardHeight = deck.offsetHeight
+        const centerX = cardWidth / 2
+        const centerY = cardHeight / 2
+
+        setCardMotion(true, duration)
+
+        cards.forEach((cardState) => {
+          const side = Math.random() < 0.5 ? -1 : 1
+          const distance = cardWidth + (Math.random() * 2 - 1) * offsetX
+          const x = centerX + side * distance - cardWidth / 2
+          const y = centerY - cardHeight / 2 + (Math.random() * 2 - 1) * offsetY
+          const rotation = (Math.random() * 2 - 1) * offsetRotation
+
+          setCardPosition(cardState, x, y, rotation)
+        })
+
+        await wait(duration)
+
+        cards.forEach((cardState) => {
+          cardState.element.style.zIndex = String(Math.floor(Math.random() * (cards.length + 1)))
+        })
+
+        await wait(duration / 2)
+
+        cards.forEach((cardState) => {
+          const init = readInitPosition(cardState.element)
+          setCardPosition(cardState, init.x, init.y, init.rotation)
+        })
+
+        await wait(duration)
+
+        setCardMotion(false)
+
+        topZIndex = Math.max(...cards.map(({ element }) => Number(element.style.zIndex)))
+        const topIndex = cards.findIndex(({ element }) => Number(element.style.zIndex) === topZIndex)
+        setTopCard(topIndex)
       }
 
       const setCardShadow = (flip, isTop) => {
@@ -107,16 +191,21 @@
           const flip = card.querySelector('.card-flip')
           const number = card.querySelector('.number')
           const back = card.querySelector('.card-back img')
-          const rotation = (Math.random() * 2 - 1) * maxRotation
+          const initX = (Math.random() * 2 - 1) * maxOffset
+          const initY = (Math.random() * 2 - 1) * maxOffset
+          const initRotation = (Math.random() * 2 - 1) * maxRotation
 
           card.dataset.index = String(index)
-          card.style.left = `${(Math.random() * 2 - 1) * maxOffset}px`
-          card.style.top = `${(Math.random() * 2 - 1) * maxOffset}px`
+          card.dataset.initX = String(initX)
+          card.dataset.initY = String(initY)
+          card.dataset.rotation = String(initRotation)
+          card.style.left = `${initX}px`
+          card.style.top = `${initY}px`
           card.style.zIndex = String(index + 1)
           number.textContent = String(index + 1)
           back.src = `images/${item.image_back}`
 
-          cards[index] = { element: card, tilt, flip, rotation, faceUp: false }
+          cards[index] = { element: card, tilt, flip, rotation: initRotation, faceUp: false }
           setCardTransform(cards[index])
 
           card.addEventListener('dragstart', (event) => event.preventDefault())
@@ -129,6 +218,13 @@
       }
 
       deckCreate('#deck')
+
+      document.querySelector('#shuffle').addEventListener('click', async () => {
+        const button = document.querySelector('#shuffle')
+        button.disabled = true
+        await deckShuffle()
+        button.disabled = false
+      })
     </script>
   </body>
 </html>
