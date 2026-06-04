@@ -103,6 +103,14 @@
         const deck = document.querySelector('#deck')
         if (!deck || cards.length === 0) return
 
+        if (cardCurrentIndex !== null) {
+          const index = cardCurrentIndex
+          cards[index].faceUp = false
+          setCardTransform(cards[index])
+          cardCurrentIndex = null
+          await new Promise((resolve) => setTimeout(resolve, 250))
+        }
+
         const cardWidth = deck.offsetWidth
         const cardHeight = deck.offsetHeight
         const centerX = cardWidth / 2
