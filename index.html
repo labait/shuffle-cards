@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shuffle Cards</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
   </head>
   <body class="min-h-screen">
     <main class="mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-6 py-12">
@@ -79,26 +80,25 @@
         rotation: parseFloat(card.dataset.rotation),
       })
 
-      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-      const setCardMotion = (enabled, duration = 400) => {
-        const transition = enabled ? `left ${duration}ms ease, top ${duration}ms ease` : ''
-        const tiltTransition = enabled ? `transform ${duration}ms ease` : ''
-
-        cards.forEach(({ element, tilt, flip }) => {
-          element.style.transition = transition
-          tilt.style.transition = tiltTransition
-          if (!enabled) {
-            flip.style.transition = ''
-          }
+      const animateCard = (cardState, { x, y, rotation, speed }) =>
+        new Promise((resolve) => {
+          gsap
+            .timeline({
+              defaults: { duration: speed / 1000, ease: 'power2.inOut' },
+              onComplete: () => {
+                cardState.rotation = rotation
+                resolve()
+              },
+            })
+            .to(cardState.element, { left: x, top: y }, 0)
+            .to(cardState.tilt, { rotation }, 0)
         })
-      }
 
-      const deckShuffle = async () => {
+      const deckShuffle = async (position = 'top') => {
         const offsetX = 24
         const offsetY = 48
         const offsetRotation = 45
-        const duration = 400
+        const speed = 70
 
         const deck = document.querySelector('#deck')
         if (!deck || cards.length === 0) return
@@ -107,38 +107,33 @@
         const cardHeight = deck.offsetHeight
         const centerX = cardWidth / 2
         const centerY = cardHeight / 2
+        const order = [...cards.keys()].sort(() => Math.random() - 0.5)
 
-        setCardMotion(true, duration)
+        for (const index of order) {
+          const cardState = cards[index]
 
-        cards.forEach((cardState) => {
           const side = Math.random() < 0.5 ? -1 : 1
           const distance = cardWidth + (Math.random() * 2 - 1) * offsetX
           const x = centerX + side * distance - cardWidth / 2
           const y = centerY - cardHeight / 2 + (Math.random() * 2 - 1) * offsetY
           const rotation = (Math.random() * 2 - 1) * offsetRotation
 
-          setCardPosition(cardState, x, y, rotation)
-        })
+          await animateCard(cardState, { x, y, rotation, speed })
 
-        await wait(duration)
+          const zIndex =
+            position === 'top'
+              ? ++topZIndex
+              : Math.floor(Math.random() * (cards.length + 1))
+          cardState.element.style.zIndex = String(zIndex)
 
-        cards.forEach((cardState) => {
-          cardState.element.style.zIndex = String(Math.floor(Math.random() * (cards.length + 1)))
-        })
-
-        await wait(duration / 2)
-
-        cards.forEach((cardState) => {
           const init = readInitPosition(cardState.element)
-          setCardPosition(cardState, init.x, init.y, init.rotation)
-        })
-
-        await wait(duration)
-
-        setCardMotion(false)
+          await animateCard(cardState, { x: init.x, y: init.y, rotation: init.rotation, speed })
+        }
 
         topZIndex = Math.max(...cards.map(({ element }) => Number(element.style.zIndex)))
-        const topIndex = cards.findIndex(({ element }) => Number(element.style.zIndex) === topZIndex)
+        const topIndex = cards.findIndex(
+          ({ element }) => Number(element.style.zIndex) === topZIndex
+        )
         setTopCard(topIndex)
       }
 
